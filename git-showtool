@@ -1,0 +1,91 @@
+#!/bin/bash
+
+# debug {{{
+eval SCRIPT_DEBUG="\$$(basename $0 | tr - _)_DEBUG"
+SCRIPT_DEBUG=${SCRIPT_DEBUG:--1}
+
+if [ "$SCRIPT_DEBUG" -ge 1 ]
+then
+   set -x
+fi
+if [ "$SCRIPT_DEBUG" -ge 10 ]
+then
+   set -v
+fi
+#}}}
+
+# functions {{{
+function help {
+   local scriptname="$(basename $0)"
+   cat >&2 <<EOF
+
+$scriptname [options] [args]
+
+Execute clases with main method inside maven project.
+
+Options:
+   -y, --no-prompt   Do not prompt before launching a diff tool
+   -h, --help        Show this help.
+
+EOF
+}
+# }}}
+
+# parse args {{{
+TEMP=$(getopt -o "yh" -l no-prompt,dir-diff,help -n $(basename $0) -- "$@")
+
+EXIT=$?
+if [ $EXIT != 0 ]
+then
+   help
+   exit $EXIT
+fi
+
+# process script arguments
+eval set -- "$TEMP"
+
+while true
+do
+   case "$1" in
+      -h|--help)
+         help
+         exit
+         ;;
+      --)
+         shift
+         break 
+         ;;
+      -y|--no-prompt|--dir-diff)
+         PARAMS="$PARAMS $1"
+         ;;
+      #TODO: Parse any param accepted by difftool
+      *)
+         cat <&2 <<EOF
+
+Error, unknow arguments $1
+EOF
+         help
+         exit 1
+         ;;
+   esac
+   shift
+done
+# }}}
+
+# exec {{{
+if [ -z "$1" ]
+then
+   REVISION="HEAD"
+else
+   REVISION="$1"
+fi
+
+if [[ "$REVISION" =~ ":/" ]]
+then
+   REVISION=$(git rev-parse "$REVISION")
+fi
+
+git difftool $PARAMS $REVISION~ $REVISION
+# }}}
+
+# vim: fdm=marker
